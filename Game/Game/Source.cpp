@@ -701,7 +701,7 @@ void drawScene(GLFWwindow *window)
 		if (hits > highScore)
 			highScore = hits;
 		hits = 0;
-		std::cout << "You Have Died" << std::endl;
+		std::cout << "You Died!" << std::endl;
 		showInfo();
 	}
 
