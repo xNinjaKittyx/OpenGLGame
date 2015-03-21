@@ -8,6 +8,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <ctime>
 #include "Sphere.h"
 #include "Bullet.h"
 /*
@@ -39,6 +40,25 @@ GLfloat fieldOfView = 45.0f;
 GLfloat near = 1.0f;                  
 GLfloat far = 1500.0f;       
 
+
+/*
+
+======= PlayerState =======
+
+*/
+struct State {
+
+	float pos[3];
+
+	float v[3];
+
+} currentState;
+
+struct Derivative {
+	float dx[3]; // dx/dt = velocity
+
+	float dv[3]; // dv/dt = acceleration
+};
 /*
 
 ======= Camera Variables =======
@@ -48,13 +68,6 @@ GLfloat camXRot = 0.0f;
 GLfloat camYRot = 180.0f;
 GLfloat camZRot = 0.0f;
 
-GLfloat camXPos = 300.0f;
-GLfloat camYPos = 0.0f;
-GLfloat camZPos = 50.0f;
-
-GLfloat camXSpeed = 0.0f;
-GLfloat camYSpeed = 0.0f;
-GLfloat camZSpeed = 0.0f;
 
 
 /*
@@ -62,7 +75,8 @@ GLfloat camZSpeed = 0.0f;
 ======= Player Speed =======
 
 */
-GLfloat movementSpeedFactor = 0.1f;
+GLfloat movementSpeedFactor = 100.0f;
+GLfloat originalSpeedFactor = movementSpeedFactor;
 
 
 /*
@@ -85,10 +99,19 @@ bool zAllowed = true;
 ======= Random counting variables =======
 
 */
-int frameCount = 0;
-int catches = 0;
-double lastBulletShot = 0;
 
+unsigned int deaths = 0;
+unsigned int hits = 0;
+unsigned int highScore = 0;
+
+void showInfo() {
+	std::cout
+		<< "================================" << std::endl
+		<< "High Score : " << highScore << std::endl
+		<< "Deaths : " << deaths << std::endl
+		<< "Hits : " << hits << std::endl
+		<< "================================" << std::endl;
+}
 /*
 
 ======= I be using dem radians =======
@@ -108,7 +131,7 @@ float toRads(const float &degrees)
 Sphere redBall;
 
 // Vector that stores bullets
-std::vector<Bullet*> bullets;
+std::vector<Bullet *> bullets;
 
 
 
@@ -124,6 +147,73 @@ void error_callback(int error, const char* description)
 
 //Mouse, Camera, Input handling Credits to r3dux.org
 
+/*
+	Integrate Physics
+*/
+
+float acceleration(const State &state, int x, float t) {
+	if (x >= 3)
+		return 0;
+	const float k = 0;
+	const float b = 0;
+	return -k * state.pos[x] - b * state.v[x];
+}
+
+Derivative evaluate(const State &initial, float t) {
+	/*
+	Evaluate the Derivative at the very beginning.
+	*/
+
+	Derivative output;
+	for (int i = 0; i < 3; i++) {
+		output.dx[i] = initial.v[i];
+		output.dv[i] = acceleration(initial, i, t);
+	}
+	return output;
+}
+Derivative evaluate(const State &initial, float t, float dt, const Derivative &d) {
+	State state;
+	for (int i = 0; i < 3; i++) {
+		state.pos[i] = initial.pos[i] + d.dx[i] * dt;
+		state.v[i] = initial.v[i] + d.dv[i] * dt;
+	}
+
+	Derivative output;
+	for (int i = 0; i < 3; i++) {
+		output.dx[i] = state.v[i];
+		output.dv[i] = acceleration(state, i, t + dt);
+	}
+	return output;
+}
+
+void integrate(float t, float dt) {
+
+	Derivative a, b, c, d;
+
+	a = evaluate(currentState, t, 0.0f, Derivative());
+	b = evaluate(currentState, t, dt * 0.5f, a);
+	c = evaluate(currentState, t, dt * 0.5f, b);
+	d = evaluate(currentState, t, dt, c);
+
+	float dxdt[3];
+	float dvdt[3];
+
+	for (int i = 0; i < 3; i++) {
+
+		dxdt[i] = 1.0f / 6.0f *
+			(a.dx[i] + 2.0f*(b.dx[i] + c.dx[i]) + d.dx[i]);
+
+		dvdt[i] = 1.0f / 6.0f *
+			(a.dv[i] + 2.0f * (b.dv[i] + c.dv[i]) + d.dv[i]);
+
+		currentState.pos[i] += dxdt[i] * dt;
+		currentState.v[i] += dvdt[i] * dt;
+	}
+
+
+}
+
+
 
 /*
 
@@ -134,9 +224,9 @@ All these camera functions use the keyinput and mouse to navigate around the wor
 void moveCamera()
 {
 	
-	camXPos += camXSpeed;
-	camYPos += camYSpeed;
-	camZPos += camZSpeed;
+	currentState.pos[0] += currentState.v[0];
+	currentState.pos[1] += currentState.v[1];
+	currentState.pos[2] += currentState.v[2];
 }
 
 void handleMouseMove(GLFWwindow* window, double mouseX, double mouseY)
@@ -185,9 +275,10 @@ void handleMouseMove(GLFWwindow* window, double mouseX, double mouseY)
 void handleMouseButton(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-		Bullet *a = new Bullet(camXPos, camYPos, camZPos, camXRot, camYRot, camZRot);
-		bullets.push_back(a);
-		std::cout << "Bullet Created" << std::endl;
+		if (bullets.size() < 5) {
+			Bullet *a = new Bullet(currentState.pos[0], currentState.pos[1], currentState.pos[2], camXRot, camYRot, camZRot);
+			bullets.push_back(a);
+		}
 	}
 		
 }
@@ -256,45 +347,45 @@ void calculateCameraMovement()
 	}
 
 	// After combining our movements for any & all keys pressed, assign them to our camera speed along the given axis
-	camXSpeed = camMovementXComponent;
-	camYSpeed = camMovementYComponent;
-	camZSpeed = camMovementZComponent;
+	currentState.v[0] = camMovementXComponent;
+	currentState.v[1] = camMovementYComponent;
+	currentState.v[2] = camMovementZComponent;
 
 	// Cap the speeds to our movementSpeedFactor (otherwise going forward and strafing at an angle is twice as fast as just going forward!)
 	// X Speed cap
-	if (camXSpeed > movementSpeedFactor)
+	if (currentState.v[0] > movementSpeedFactor)
 	{
 		//cout << "high capping X speed to: " << movementSpeedFactor << endl;
-		camXSpeed = movementSpeedFactor;
+		currentState.v[0] = movementSpeedFactor;
 	}
-	if (camXSpeed < -movementSpeedFactor)
+	if (currentState.v[0] < -movementSpeedFactor)
 	{
 		//cout << "low capping X speed to: " << movementSpeedFactor << endl;
-		camXSpeed = -movementSpeedFactor;
+		currentState.v[0] = -movementSpeedFactor;
 	}
 
 	// Y Speed cap
-	if (camYSpeed > movementSpeedFactor)
+	if (currentState.v[1] > movementSpeedFactor)
 	{
 		//cout << "low capping Y speed to: " << movementSpeedFactor << endl;
-		camYSpeed = movementSpeedFactor;
+		currentState.v[1] = movementSpeedFactor;
 	}
-	if (camYSpeed < -movementSpeedFactor)
+	if (currentState.v[1] < -movementSpeedFactor)
 	{
 		//cout << "high capping Y speed to: " << movementSpeedFactor << endl;
-		camYSpeed = -movementSpeedFactor;
+		currentState.v[1] = -movementSpeedFactor;
 	}
 
 	// Z Speed cap
-	if (camZSpeed > movementSpeedFactor)
+	if (currentState.v[2] > movementSpeedFactor)
 	{
 		//cout << "high capping Z speed to: " << movementSpeedFactor << endl;
-		camZSpeed = movementSpeedFactor;
+		currentState.v[2] = movementSpeedFactor;
 	}
-	if (camZSpeed < -movementSpeedFactor)
+	if (currentState.v[2] < -movementSpeedFactor)
 	{
 		//cout << "low capping Z speed to: " << movementSpeedFactor << endl;
-		camZSpeed = -movementSpeedFactor;
+		currentState.v[2] = -movementSpeedFactor;
 	}
 }
 
@@ -306,53 +397,53 @@ void calculateCameraMovement()
 void inboundsCheck() {
 	if (noClip == false) {
 		//Section 1 check
-		if (camZPos <= 200) {
-			if (camXPos < 210) {
+		if (currentState.pos[2] <= 200) {
+			if (currentState.pos[0] < 210) {
 				xAllowed = false;
-				camXPos = 210;
+				currentState.pos[0] = 210;
 			}
-			else if (camXPos > 390) {
+			else if (currentState.pos[0] > 390) {
 				xAllowed = false;
-				camXPos = 390;
+				currentState.pos[0] = 390;
 			}
 
-			if (camZPos < 10) {
+			if (currentState.pos[2] < 10) {
 				zAllowed = false;
-				camZPos = 10;
+				currentState.pos[2] = 10;
 			}
 		}
 		//Section 2 Check
-		else if (camZPos > 200 && camZPos <= 800) {
-			if (camXPos < 200) {
+		else if (currentState.pos[2] > 200 && currentState.pos[2] <= 800) {
+			if (currentState.pos[0] < 200) {
 				//Check for Section 2, Bottom Left
-				if (camZPos < 210) {
+				if (currentState.pos[2] < 210) {
 					zAllowed = false;
-					camZPos = 210;
+					currentState.pos[2] = 210;
 				}
 				//Check for Section 2, Left Wall
-				if (camXPos < 10) {
+				if (currentState.pos[0] < 10) {
 					xAllowed = false;
-					camXPos = 10;
+					currentState.pos[0] = 10;
 				}
 			}
-			else if (camXPos > 400) {
+			else if (currentState.pos[0] > 400) {
 				//Check for Section 2, Bottom Right
-				if (camZPos < 210) {
+				if (currentState.pos[2] < 210) {
 					zAllowed = false;
-					camZPos = 210;
+					currentState.pos[2] = 210;
 				}
 				//Check for Section 2, Right Wall
-				if (camXPos > 590) {
+				if (currentState.pos[0] > 590) {
 					xAllowed = false;
-					camXPos = 590;
+					currentState.pos[0] = 590;
 				}
 			}
 			//Section 2 Check Cylinder in Middle
 
 			//Section 2 Check Back wall.
-			if (camZPos > 790 && (camXPos > 350 || camXPos < 250)) {
+			if (currentState.pos[2] > 790 && (currentState.pos[0] > 350 || currentState.pos[0] < 250)) {
 				zAllowed = false;
-				camZPos = 790;
+				currentState.pos[2] = 790;
 			}
 		}
 	}
@@ -386,13 +477,13 @@ void handleKeypress(GLFWwindow* window, int key, int scancode, int action, int m
 		case 'X':
 			if (noClip == true) {
 				noClip = false;
-				camYPos = 0;
+				currentState.pos[1] = 0;
 			} else
 				noClip = true;
 
 		case GLFW_KEY_LEFT_SHIFT:
 			//Speed Multiplier
-			movementSpeedFactor = 0.15f;
+			movementSpeedFactor = originalSpeedFactor * 2;
 			break;
 			
 		case GLFW_KEY_ESCAPE:
@@ -427,7 +518,7 @@ void handleKeypress(GLFWwindow* window, int key, int scancode, int action, int m
 
 		case GLFW_KEY_LEFT_SHIFT:
 			//Speed Multiplier
-			movementSpeedFactor = 0.1f;
+			movementSpeedFactor = originalSpeedFactor;
 			break;
 
 		default:
@@ -599,21 +690,41 @@ void drawScene(GLFWwindow *window)
 	glLoadIdentity();
 
 	//If you catch the ball (or hit by it depending how you see it) reset the player's position.
-	if (redBall.collision(camXPos, camYPos, camZPos)) {
-		camXPos = 300;
-		camYPos = 0;
-		camZPos = 100;
+	if (redBall.collision(currentState.pos[0], currentState.pos[1], currentState.pos[2])) {
+		currentState.pos[0] = 300;
+		currentState.pos[1] = 0;
+		currentState.pos[2] = 100;
 		camXRot = 0;
 		camYRot = 180;
 		camZRot = 0;
-		catches++;
-		std::cout << "You caught the ball!" << std::endl << "You have caught " << catches << " balls" << std::endl;
+		deaths++;
+		if (hits > highScore)
+			highScore = hits;
+		hits = 0;
+		std::cout << "You Have Died" << std::endl;
+		showInfo();
+	}
+
+	for (int i = 0; i < bullets.size(); i++) {
+		Bullet &b = *bullets[i];
+		if (b.collision(redBall.getXPos(), redBall.getYPos(), redBall.getZPos(), redBall.getRadius())) {
+			GLfloat r = rand() % 8 + 1;
+			GLfloat g = rand() % 16 + 1;
+			GLfloat b = rand() % 32 + 1;
+			redBall.colorSphere(r / 8, g / 16, b / 32);
+			bullets.erase(bullets.begin() + i);
+			hits++;
+
+			std::cout << "You Hit the Ball!" << std::endl;
+			showInfo();
+		}
+
 	}
 
 
 	glRotatef(camXRot, 1.0f, 0.0f, 0.0f);        // Rotate our camera on the x-axis (looking up and down)
 	glRotatef(camYRot, 0.0f, 1.0f, 0.0f);        // Rotate our camera on the  y-axis (looking left and right)
-	glTranslatef(-camXPos, -camYPos, -camZPos);    // Translate the modelviewm matrix to the position of our camera
+	glTranslatef(-currentState.pos[0], -currentState.pos[1], -currentState.pos[2]);    // Translate the modelviewm matrix to the position of our camera
 	
 	// Draw Cylinder
 	glPushMatrix();
@@ -625,7 +736,7 @@ void drawScene(GLFWwindow *window)
 	glPushMatrix();
 	glRotatef(-camXRot, 1.0f, 0.0f, 0.0f);
 	glRotatef(-camYRot, 0.0f, 1.0f, 0.0f);
-	glTranslatef(camXPos, camYPos - 5, camZPos + 5);
+	glTranslatef(currentState.pos[0], currentState.pos[1] - 5, currentState.pos[2] + 5);
 	//DrawGun
 	glPopMatrix();
 
@@ -758,6 +869,16 @@ void drawScene(GLFWwindow *window)
 }
 
 void init(void) {
+	std::srand(time(NULL));
+
+	currentState.pos[0] = 300.0f;
+	currentState.pos[1] = 0.0f;
+	currentState.pos[2] = 50.0f;
+
+	currentState.v[0] = 0.0f;
+	currentState.v[1] = 0.0f;
+	currentState.v[2] = 0.0f;
+
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_LIGHTING);
@@ -839,31 +960,42 @@ int main(void)
 	glfwSetMouseButtonCallback(window, handleMouseButton);
 
 	double t = 0.0;
-	double dt = 1.0 / 60.0;
+	double dt = 0.01;
+
+	double currentTime = glfwGetTime();
+	double accumulator = 0.0;
 
 	std::cout << "Game Loop Initialized" << std::endl;
 	while (!glfwWindowShouldClose(window))
 	{
+
+		double newTime = glfwGetTime();
+		double frameTime = newTime - currentTime;
+		currentTime = newTime;
+		accumulator += frameTime;
 		/* Comput all the inputs */
-		for (int i = 0; i < bullets.size(); i++) {
-			Bullet &b = *bullets[i];
-			b.integrate(t, dt);
-			if (b.inBoundCheck() == false)
-				bullets.erase(bullets.begin() + i);
+
+		while (accumulator >= dt) {
+			//Integrate
+			for (int i = 0; i < bullets.size(); i++) {
+				Bullet &b = *bullets[i];
+				if (b.inBoundCheck(t, dt) == false)
+					bullets.erase(bullets.begin() + i);
+			}
+
+			redBall.inBoundCheck();
+			redBall.integrate(t, dt);
+
+			inboundsCheck();
+			calculateCameraMovement();
+			integrate(t, dt);
+
+			accumulator -= dt;
+			t += dt;
 		}
-		redBall.inBoundCheck();
-		redBall.integrate(t, dt);
 
 		drawScene(window);
 
-		inboundsCheck();
-
-
-		calculateCameraMovement();
-
-		moveCamera();
-
-		frameCount++;
 
 		xAllowed = true;
 		zAllowed = true;
@@ -874,7 +1006,6 @@ int main(void)
 		/* Poll for and process events */
 		glfwPollEvents();
 
-		t += dt;
 
 	}
 

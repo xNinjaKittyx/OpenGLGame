@@ -2,39 +2,46 @@
 #include "Bullet.h"
 #include <cmath>
 
-struct Bullet::State {
-
-	float pos[3];
-
-	float v[3];
-
-} currentState;
-
-struct Bullet::Derivative {
-	float dx[3]; // dx/dt = velocity
-
-	float dv[3]; // dv/dt = acceleration
-};
-
 
 Bullet::Bullet(GLfloat x, GLfloat y, GLfloat z, GLfloat xrot, GLfloat yrot, GLfloat zrot) {
 
 	currentState.pos[0] = x;
-	currentState.pos[1] = y - 5;
-	currentState.pos[2] = z + 10;
+	currentState.pos[1] = y + 5;
+	currentState.pos[2] = z;
 
-	red = 0.8f;
+	red = 0.3f;
 	blue = 0.3f;
-	green = 0.3f;
+	green = 0.8f;
 
 	radius = 3.0f;
 
 	//Speed of bullet
-	speed = 20.0f;
+	speed = 600.0f;
+	float xv = sin(toRads(yrot)) * cos(toRads(xrot)) * speed;
+	float yv = sin(toRads(xrot)) * -1.0f * speed;
+	float zv = cos(toRads(yrot)) * -1.0f * cos(toRads(xrot)) * speed;
+	
+	if (xv > speed)
+		xv = speed;
 
-	currentState.v[0] = float(sin(toRads(yrot)) * cos(toRads(xrot))) * speed;
-	currentState.v[1] = float(sin(toRads(xrot))) * -1.0f;
-	currentState.v[2] = float(cos(toRads(yrot)) * -1.0f * cos(toRads(xrot))) * speed;
+	if (xv < -speed)
+		xv = -speed;
+
+	if (yv > speed)
+		yv = speed;
+
+	if (yv < -speed)
+		yv = -speed;
+
+	if (zv > speed)
+		zv = speed;
+
+	if (zv < -speed)
+		zv = -speed;
+
+	currentState.v[0] = xv;
+	currentState.v[1] = yv;
+	currentState.v[2] = zv;
 }
 
 
@@ -50,7 +57,7 @@ void Bullet::colorBullet(GLfloat r, GLfloat g, GLfloat b) {
 }
 
 
-bool Bullet::inBoundCheck() {
+bool Bullet::inBoundCheck(float t, float dt) {
 	//Section 1 check
 	if (currentState.pos[2] <= 200.0f) {
 		if (currentState.pos[0] - radius < 200.0f)
@@ -94,6 +101,8 @@ bool Bullet::inBoundCheck() {
 		return false;
 	else if (currentState.pos[1] - radius < -50)
 		return false;
+
+	integrate(t, dt);
 
 	return true;
 }
@@ -162,11 +171,11 @@ void Bullet::drawBullet() {
 }
 
 
-bool Bullet::collision(GLfloat camXPos, GLfloat camYPos, GLfloat camZPos) {
+bool Bullet::collision(GLfloat camXPos, GLfloat camYPos, GLfloat camZPos, GLfloat r) {
 	if (
-		(camXPos >= (int)currentState.pos[0] - (int)radius) && (camXPos <= ((int)currentState.pos[0] + (int)radius)) &&
-		(camYPos >= (int)currentState.pos[1] - (int)radius) && (camYPos <= ((int)currentState.pos[1] + (int)radius)) &&
-		(camZPos >= (int)currentState.pos[2] - (int)radius) && (camZPos <= ((int)currentState.pos[2] + (int)radius))
+		((camXPos + r) >= (int)currentState.pos[0] - (int)radius) && ((camXPos - r) <= ((int)currentState.pos[0] + (int)radius)) &&
+		((camYPos + r) >= (int)currentState.pos[1] - (int)radius) && ((camYPos - r) <= ((int)currentState.pos[1] + (int)radius)) &&
+		((camZPos + r) >= (int)currentState.pos[2] - (int)radius) && ((camZPos - r) <= ((int)currentState.pos[2] + (int)radius))
 		)
 		return true;
 	return false;

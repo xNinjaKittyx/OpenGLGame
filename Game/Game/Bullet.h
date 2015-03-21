@@ -8,16 +8,27 @@ public:
 	Bullet(GLfloat x, GLfloat y, GLfloat z, GLfloat xrot, GLfloat yrot, GLfloat zrot);
 	~Bullet();
 	void colorBullet(GLfloat red, GLfloat green, GLfloat blue);
-	bool inBoundCheck();
+	bool inBoundCheck(float t, float dt);
 	void drawBullet();
 
-	struct State;
+	struct State {
 
-	struct Derivative;
+		float pos[3];
 
-	void integrate(float t, float dt);
+		float v[3];
 
-	bool collision(GLfloat camXPos, GLfloat camYPos, GLfloat camZPos);
+	};
+
+	State currentState;
+
+	struct Derivative {
+		float dx[3]; // dx/dt = velocity
+
+		float dv[3]; // dv/dt = acceleration
+	};
+
+
+	bool collision(GLfloat camXPos, GLfloat camYPos, GLfloat camZPos, GLfloat r);
 
 	GLfloat getXPos();
 
@@ -49,6 +60,7 @@ private:
 
 	float gravity;
 
+	void integrate(float t, float dt);
 	float acceleration(const State &state, int x, float t);
 	Derivative evaluate(const State &initial, float t);
 	Derivative evaluate(const State &initial, float t, float dt, const Derivative &d);

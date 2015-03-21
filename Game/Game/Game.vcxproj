@@ -81,13 +81,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Bullet.cpp" />
-    <ClCompile Include="Integration.cpp" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="Sphere.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Bullet.h" />
-    <ClInclude Include="Integration.h" />
     <ClInclude Include="Sphere.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

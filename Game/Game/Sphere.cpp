@@ -33,9 +33,9 @@ Sphere::Sphere() {
 
 	radius = 20.0f;
 
-	currentState.v[0] = 10.0f;
-	currentState.v[1] = 5.0f;
-	currentState.v[2] = 7.5f;
+	currentState.v[0] = 150.0f;
+	currentState.v[1] = 125.0f;
+	currentState.v[2] = 137.5f;
 }
 
 Sphere::Sphere(GLfloat x, GLfloat y, GLfloat z, GLfloat r) {
@@ -49,9 +49,9 @@ Sphere::Sphere(GLfloat x, GLfloat y, GLfloat z, GLfloat r) {
 
 	radius = r;
 
-	currentState.v[0] = 10.0f;
-	currentState.v[1] = 5.0f;
-	currentState.v[2] = 7.5f;
+	currentState.v[0] = 150.0f;
+	currentState.v[1] = 125.0f;
+	currentState.v[2] = 137.5f;
 }
 
 Sphere::~Sphere() {
