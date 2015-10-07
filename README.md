@@ -22,6 +22,8 @@ This game consists of zombies in a simple FPS world.
 - Right Click - Shoot bullets
 - G - Fog
 - L - Lighting
+- X - No-Clip
+- ESC - Close this really ugly game.
 
 ##Known Problems:
 - If you sprint jump constantly, you'll slowly sink into the floor.
