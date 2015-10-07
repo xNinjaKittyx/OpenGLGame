@@ -3,7 +3,7 @@ A small mini-game created in OpenGL
 
 This game consists of zombies in a simple FPS world.
 
-Features:
+##Features:
 - Not Frame dependent. It will not depend on frames.
 - Using OpenGL 1.1, I tried to preload walls and floor to reduce drawing new vertices every time.
 - Uses an FPS camera. Freelooking. Not like the ugly GLUT movements forward and backwards
@@ -17,14 +17,13 @@ Features:
 - Fog because why not.
 - Spotlight lighting
 
-Controls:
+##Controls:
 - WASD - Movement
 - Right Click - Shoot bullets
 - G - Fog
 - L - Lighting
-- 
 
-Known Problems:
+##Known Problems:
 - If you sprint jump constantly, you'll slowly sink into the floor.
 - If you try to jump onto the platform in the middle, things start glitching with jumps and collisions
 - You don't actually lose health for some reason.
